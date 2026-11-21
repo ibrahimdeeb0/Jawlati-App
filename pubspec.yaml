@@ -1,0 +1,72 @@
+name: jawlati
+description: "جولتي، تطبيق عمليات ميدانية لمندوبي المبيعات."
+
+publish_to: "none" # Remove this line if you wish to publish to pub.dev
+
+version: 0.1.0+1
+
+environment:
+  sdk: ^3.8.0
+
+dependencies:
+  build_runner: ^2.4.13
+  cupertino_icons: ^1.0.8
+  dio: ^5.8.0+1
+  flutter:
+    sdk: flutter
+  flutter_bloc: ^9.0.0
+  flutter_screenutil: ^5.9.3
+  flutter_secure_storage: ^9.2.4
+  flutter_svg: ^2.0.17
+  fluttertoast: ^8.2.10
+  image_picker: ^1.1.2
+  freezed: ^3.2.0
+  freezed_annotation: ^3.1.0
+  get_it: ^8.0.3
+  intl: ^0.20.2
+  json_annotation: ^4.9.0
+  json_serializable: ^6.6.1
+  logger: ^2.5.0
+  path_provider: ^2.1.5
+  pdf: ^3.11.3
+  pretty_dio_logger: ^1.4.0
+  printing: ^5.14.2
+  share_plus: ^11.1.0
+  shared_preferences: ^2.3.5
+  uuid: ^4.5.1
+  geolocator: ^13.0.1
+  permission_handler: ^11.3.1
+
+dev_dependencies:
+  flutter_launcher_icons: ^0.14.4
+  flutter_lints: ^6.0.0
+  flutter_test:
+    sdk: flutter
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/images/jawlati_mark.png"
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/images/
+    - assets/svgs/
+
+  # fonts:
+  fonts:
+    - family: Tajawal
+      fonts:
+        - asset: assets/fonts/tajawal/Tajawal-ExtraBold.ttf
+          weight: 700
+        - asset: assets/fonts/tajawal/Tajawal-Bold.ttf
+          weight: 600
+        - asset: assets/fonts/tajawal/Tajawal-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/tajawal/Tajawal-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/tajawal/Tajawal-Light.ttf
+          weight: 300
+        - asset: assets/fonts/tajawal/Tajawal-ExtraLight.ttf
+          weight: 200
