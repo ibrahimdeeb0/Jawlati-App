@@ -8,6 +8,7 @@ import 'package:jawlati/core/widgets/forms/app_text_form_field.dart';
 import 'package:jawlati/features/clients/data/models/client_model.dart';
 import '../logic/visits_cubit.dart';
 import 'widgets/client_selection_widget.dart';
+import 'widgets/visit_issue_message.dart';
 
 class CheckInScreen extends StatefulWidget {
   const CheckInScreen({super.key});
@@ -43,107 +44,85 @@ class _CheckInScreenState extends State<CheckInScreen> {
           elevation: 1,
           iconTheme: IconThemeData(color: AppColors.darkBlue),
         ),
-        body: BlocListener<VisitsCubit, VisitsState>(
-          listener: (context, state) {
-            state.whenOrNull(
-              loaded: (currentVisit, stats, message) {
-                if (message != null && currentVisit != null) {
-                  Navigator.pop(context);
-                  ScaffoldMessenger.of(
-                    context,
-                  ).showSnackBar(SnackBar(content: Text(message)));
-                }
-              },
-              error: (message) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text(message), backgroundColor: Colors.red),
-                );
-              },
-            );
-          },
-          child: SingleChildScrollView(
-            padding: EdgeInsets.all(16.r),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // اختيار العميل
-                _buildSectionHeader('اختر العميل'),
-                SizedBox(height: 12.h),
-                ClientSelectionWidget(
-                  selectedClient: _selectedClient,
-                  onClientSelected: (client) {
-                    setState(() {
-                      _selectedClient = client;
-                    });
-                  },
-                ),
+        body: SingleChildScrollView(
+          padding: EdgeInsets.all(16.r),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // اختيار العميل
+              _buildSectionHeader('اختر العميل'),
+              SizedBox(height: 12.h),
+              ClientSelectionWidget(
+                selectedClient: _selectedClient,
+                onClientSelected: (client) {
+                  setState(() {
+                    _selectedClient = client;
+                  });
+                },
+              ),
 
-                SizedBox(height: 24.h),
+              SizedBox(height: 24.h),
 
-                // غرض الزيارة
-                _buildSectionHeader('غرض الزيارة (اختياري)'),
-                SizedBox(height: 12.h),
-                _buildPurposeSelection(),
+              // غرض الزيارة
+              _buildSectionHeader('غرض الزيارة (اختياري)'),
+              SizedBox(height: 12.h),
+              _buildPurposeSelection(),
 
-                SizedBox(height: 24.h),
+              SizedBox(height: 24.h),
 
-                // ملاحظات
-                _buildSectionHeader('ملاحظات إضافية (اختياري)'),
-                SizedBox(height: 12.h),
-                AppTextFormField(
-                  controller: _notesController,
-                  hintText: 'أضف ملاحظات حول الزيارة...',
-                  maxLines: 3,
-                ),
+              // ملاحظات
+              _buildSectionHeader('ملاحظات إضافية (اختياري)'),
+              SizedBox(height: 12.h),
+              AppTextFormField(
+                controller: _notesController,
+                hintText: 'أضف ملاحظات حول الزيارة...',
+                maxLines: 3,
+              ),
 
-                SizedBox(height: 32.h),
+              SizedBox(height: 32.h),
 
-                // زر بدء الزيارة
-                BlocBuilder<VisitsCubit, VisitsState>(
-                  builder: (context, state) {
-                    final isLoading = state.maybeWhen(
-                      loading: () => true,
-                      orElse: () => false,
-                    );
+              // زر بدء الزيارة
+              BlocBuilder<VisitsCubit, VisitsState>(
+                builder: (context, state) {
+                  final isLoading = state.isBusy;
 
-                    return SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: _selectedClient == null || isLoading
-                            ? null
-                            : _startVisit,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.mainOrange,
-                          foregroundColor: Colors.white,
-                          padding: EdgeInsets.symmetric(vertical: 16.h),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8.r),
-                          ),
+                  return SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: _selectedClient == null || isLoading
+                          ? null
+                          : _startVisit,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.mainOrange,
+                        foregroundColor: Colors.white,
+                        padding: EdgeInsets.symmetric(vertical: 16.h),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8.r),
                         ),
-                        child: isLoading
-                            ? SizedBox(
-                                height: 20,
-                                width: 20,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  valueColor: AlwaysStoppedAnimation(
-                                    Colors.white,
-                                  ),
-                                ),
-                              )
-                            : Text(
-                                'بدء الزيارة',
-                                style: TextStyle(
-                                  fontSize: 16.sp,
-                                  fontWeight: FontWeight.w600,
+                      ),
+                      child: isLoading
+                          ? SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor: AlwaysStoppedAnimation(
+                                  Colors.white,
                                 ),
                               ),
-                      ),
-                    );
-                  },
-                ),
-              ],
-            ),
+                            )
+                          : Text(
+                              'بدء الزيارة',
+                              style: TextStyle(
+                                fontSize: 16.sp,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                    ),
+                  );
+                },
+              ),
+            ],
           ),
         ),
       ),
@@ -184,20 +163,27 @@ class _CheckInScreenState extends State<CheckInScreen> {
     );
   }
 
-  void _startVisit() {
-    if (_selectedClient == null) return;
+  Future<void> _startVisit() async {
+    final client = _selectedClient;
+    if (client == null) return;
 
-    context.read<VisitsCubit>().checkIn(
-      clientId: _selectedClient!.id,
-      clientName: _selectedClient!.name,
-      salesmanId: '1', // TODO: Get from auth
-      salesmanName: 'المندوب الحالي', // TODO: Get from auth
-      purpose: _purposeController.text.trim().isEmpty
-          ? null
-          : _purposeController.text.trim(),
-      notes: _notesController.text.trim().isEmpty
-          ? null
-          : _notesController.text.trim(),
+    final purpose = _purposeController.text.trim();
+    final notes = _notesController.text.trim();
+    final messenger = ScaffoldMessenger.of(context);
+    final issue = await context.read<VisitsCubit>().checkIn(
+      clientId: client.id,
+      purpose: purpose.isEmpty ? null : purpose,
+      notes: notes.isEmpty ? null : notes,
+    );
+
+    if (!mounted) return;
+    if (issue != null) {
+      showVisitIssue(context, issue);
+      return;
+    }
+    Navigator.pop(context);
+    messenger.showSnackBar(
+      const SnackBar(content: Text('تم بدء الزيارة بنجاح')),
     );
   }
 }

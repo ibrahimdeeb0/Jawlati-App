@@ -25,12 +25,9 @@ class AddClientScreen extends StatelessWidget {
           listener: (context, state) {
             state.whenOrNull(
               success: (message, _) {
-                AppDialog.showSuccessDialog(
-                  context: context,
-                  title: 'نجاح',
-                  message: message,
-                );
+                final messenger = ScaffoldMessenger.of(context);
                 Navigator.of(context).pop(true);
+                messenger.showSnackBar(SnackBar(content: Text(message)));
               },
               error: (message) {
                 AppDialog.showErrorDialog(

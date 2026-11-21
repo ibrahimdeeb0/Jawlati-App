@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:jawlati/core/di/dependency_injection.dart';
 import 'package:jawlati/core/helpers/extensions.dart';
 import 'package:jawlati/core/theme/app_colors.dart';
 import 'package:jawlati/core/theme/app_text_styles.dart';
 import 'package:jawlati/core/widgets/index.dart';
 import 'package:jawlati/features/clients/data/models/client_model.dart';
+import 'package:jawlati/features/clients/data/repo/client_repository.dart';
 
 class ClientSelectionWidget extends StatelessWidget {
   final Client? selectedClient;
@@ -126,66 +128,18 @@ class _ClientSelectionContent extends StatefulWidget {
 
 class _ClientSelectionContentState extends State<_ClientSelectionContent> {
   final _searchController = TextEditingController();
-  List<Client> _clients = [];
-  List<Client> _filteredClients = [];
-  bool _isLoading = true;
+  late Future<List<Client>> _clients;
 
   @override
   void initState() {
     super.initState();
-    _loadClients();
-    _searchController.addListener(_filterClients);
+    _clients = getIt<ClientRepository>().getAllClients();
   }
 
   @override
   void dispose() {
     _searchController.dispose();
     super.dispose();
-  }
-
-  void _loadClients() {
-    // TODO: Load clients from repository
-    // للتجربة، سنضع بيانات وهمية
-    _clients = [
-      Client(
-        id: '1',
-        name: 'محمد أحمد',
-        phone: '123456789',
-        address: 'عمان، الأردن',
-        type: ClientType.individual,
-      ),
-      Client(
-        id: '2',
-        name: 'شركة التكنولوجيا المتقدمة',
-        phone: '987654321',
-        address: 'إربد، الأردن',
-        type: ClientType.company,
-      ),
-      Client(
-        id: '3',
-        name: 'فاطمة خالد',
-        phone: '555666777',
-        address: 'الزرقاء، الأردن',
-        type: ClientType.individual,
-      ),
-    ];
-
-    _filteredClients = _clients;
-    _isLoading = false;
-    setState(() {});
-  }
-
-  void _filterClients() {
-    final query = _searchController.text.toLowerCase();
-    setState(() {
-      _filteredClients = _clients
-          .where(
-            (client) =>
-                client.name.toLowerCase().contains(query) ||
-                (client.address?.toLowerCase().contains(query) ?? false),
-          )
-          .toList();
-    });
   }
 
   @override
@@ -200,6 +154,7 @@ class _ClientSelectionContentState extends State<_ClientSelectionContent> {
             // شريط البحث
             TextField(
               controller: _searchController,
+              onChanged: (_) => setState(() {}),
               textDirection: TextDirection.rtl,
               decoration: InputDecoration(
                 hintText: 'ابحث عن عميل...',
@@ -218,46 +173,73 @@ class _ClientSelectionContentState extends State<_ClientSelectionContent> {
 
             // قائمة العملاء
             Expanded(
-              child: _isLoading
-                  ? Center(child: CircularProgressIndicator())
-                  : _filteredClients.isEmpty
-                  ? _buildEmptyState()
-                  : ListView.builder(
-                      itemCount: _filteredClients.length,
-                      itemBuilder: (context, index) {
-                        final client = _filteredClients[index];
-                        final isSelected =
-                            widget.selectedClient?.id == client.id;
+              child: FutureBuilder<List<Client>>(
+                future: _clients,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState != ConnectionState.done) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  if (snapshot.hasError) {
+                    return Center(
+                      child: TextButton(
+                        onPressed: () => setState(() {
+                          _clients = getIt<ClientRepository>().getAllClients();
+                        }),
+                        child: const Text('تعذر تحميل العملاء. أعد المحاولة'),
+                      ),
+                    );
+                  }
 
-                        return ListTile(
-                          leading: CircleAvatar(
-                            backgroundColor: AppColors.mainBlue.withOpacity(
-                              0.1,
-                            ),
-                            child: Icon(
-                              client.type == ClientType.company
-                                  ? Icons.business
-                                  : Icons.person,
-                              color: AppColors.mainBlue,
-                            ),
+                  final query = _searchController.text.trim().toLowerCase();
+                  final clients = snapshot.requireData
+                      .where(
+                        (client) =>
+                            client.isActive &&
+                            (client.name.toLowerCase().contains(query) ||
+                                client.phone.contains(query) ||
+                                (client.address?.toLowerCase().contains(
+                                      query,
+                                    ) ??
+                                    false)),
+                      )
+                      .toList();
+
+                  if (clients.isEmpty) return _buildEmptyState();
+                  return ListView.builder(
+                    itemCount: clients.length,
+                    itemBuilder: (context, index) {
+                      final client = clients[index];
+                      final isSelected = widget.selectedClient?.id == client.id;
+
+                      return ListTile(
+                        leading: CircleAvatar(
+                          backgroundColor: AppColors.mainBlue.withOpacity(0.1),
+                          child: Icon(
+                            client.type == ClientType.company
+                                ? Icons.business
+                                : Icons.person,
+                            color: AppColors.mainBlue,
                           ),
-                          title: Text(client.name),
-                          subtitle: client.address != null
-                              ? Text(client.address!)
-                              : null,
-                          trailing: isSelected
-                              ? Icon(
-                                  Icons.check_circle,
-                                  color: AppColors.mainBlue,
-                                )
-                              : null,
-                          onTap: () {
-                            widget.onClientSelected(client);
-                            Navigator.pop(context);
-                          },
-                        );
-                      },
-                    ),
+                        ),
+                        title: Text(client.name),
+                        subtitle: client.address != null
+                            ? Text(client.address!)
+                            : null,
+                        trailing: isSelected
+                            ? Icon(
+                                Icons.check_circle,
+                                color: AppColors.mainBlue,
+                              )
+                            : null,
+                        onTap: () {
+                          widget.onClientSelected(client);
+                          Navigator.pop(context);
+                        },
+                      );
+                    },
+                  );
+                },
+              ),
             ),
           ],
         ),

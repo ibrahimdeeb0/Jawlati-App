@@ -1,127 +1,88 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:freezed_annotation/freezed_annotation.dart';
-import 'package:jawlati/core/helpers/app_logger.dart';
+import 'package:jawlati/core/services/location_service.dart';
+
 import '../data/models/client_visit_model.dart';
 import '../data/repo/visits_repository.dart';
 
-part 'visits_cubit.freezed.dart';
 part 'visits_state.dart';
 
+enum VisitIssue {
+  locationDisabled,
+  locationDenied,
+  locationDeniedForever,
+  locationTimedOut,
+  alreadyActive,
+  noActiveVisit,
+  clientNotFound,
+  busy,
+  unexpected;
+
+  static VisitIssue fromError(Object error) => switch (error) {
+    LocationFailure.disabled => locationDisabled,
+    LocationFailure.denied => locationDenied,
+    LocationFailure.deniedForever => locationDeniedForever,
+    LocationFailure.timedOut => locationTimedOut,
+    VisitFailure.alreadyActive => alreadyActive,
+    VisitFailure.noActiveVisit => noActiveVisit,
+    VisitFailure.clientNotFound => clientNotFound,
+    _ => unexpected,
+  };
+}
+
 class VisitsCubit extends Cubit<VisitsState> {
-  final VisitsRepository _visitsRepository;
+  VisitsCubit(this._repository) : super(const VisitsState());
 
-  VisitsCubit(this._visitsRepository) : super(const VisitsState.initial());
+  final VisitsRepository _repository;
 
-  // تحميل الحالة الأولية
   Future<void> initialize() async {
-    emit(const VisitsState.loading());
+    if (state.isBusy) return;
+    emit(const VisitsState(isBusy: true));
     try {
-      final currentVisit = await _visitsRepository.getCurrentVisit();
-      final stats = await _visitsRepository.getVisitStats();
-
-      emit(VisitsState.loaded(currentVisit: currentVisit, visitStats: stats));
-    } catch (e) {
-      emit(VisitsState.error(e.toString()));
+      final visit = await _repository.getCurrentVisit();
+      if (!isClosed) emit(VisitsState(isReady: true, currentVisit: visit));
+    } catch (_) {
+      if (!isClosed) emit(const VisitsState(loadFailed: true));
     }
   }
 
-  // بدء زيارة جديدة
-  Future<void> checkIn({
+  Future<VisitIssue?> checkIn({
     required String clientId,
-    required String clientName,
-    required String salesmanId,
-    String? salesmanName,
     String? purpose,
     String? notes,
-  }) async {
-    emit(const VisitsState.loading());
+  }) => _run(
+    () =>
+        _repository.checkIn(clientId: clientId, purpose: purpose, notes: notes),
+  );
+
+  Future<VisitIssue?> checkOut({String? notes}) => _run(() async {
+    await _repository.checkOut(notes: notes);
+    return null;
+  });
+
+  Future<VisitIssue?> cancelVisit() => _run(() async {
+    await _repository.cancelCurrentVisit();
+    return null;
+  });
+
+  Future<VisitIssue?> _run(Future<ClientVisit?> Function() operation) async {
+    final previous = state;
+    if (previous.isBusy || !previous.isReady) return VisitIssue.busy;
+    emit(
+      VisitsState(
+        isReady: true,
+        isBusy: true,
+        currentVisit: previous.currentVisit,
+      ),
+    );
     try {
-      final visit = await _visitsRepository.checkIn(
-        clientId: clientId,
-        clientName: clientName,
-        salesmanId: salesmanId,
-        salesmanName: salesmanName,
-        purpose: purpose,
-        notes: notes,
-      );
-
-      // تحديث الإحصائيات
-      final stats = await _visitsRepository.getVisitStats();
-
-      emit(
-        VisitsState.loaded(
-          currentVisit: visit,
-          visitStats: stats,
-          message: 'تم بدء الزيارة بنجاح',
-        ),
-      );
-    } catch (e) {
-      AppLogger().debug(e.toString());
-      emit(VisitsState.error(e.toString()));
-      // إعادة تحميل البيانات بعد الخطأ
-      await initialize();
+      final visit = await operation();
+      if (!isClosed) emit(VisitsState(isReady: true, currentVisit: visit));
+      return null;
+    } catch (error) {
+      if (!isClosed) emit(previous);
+      return VisitIssue.fromError(error);
     }
   }
 
-  // إنهاء الزيارة
-  Future<void> checkOut({String? notes, List<String>? attachments}) async {
-    emit(const VisitsState.loading());
-    try {
-      final visit = await _visitsRepository.checkOut(
-        notes: notes,
-        attachments: attachments,
-      );
-
-      // تحديث الإحصائيات
-      final stats = await _visitsRepository.getVisitStats();
-
-      emit(
-        VisitsState.loaded(
-          currentVisit: null,
-          visitStats: stats,
-          message: 'تم إنهاء الزيارة بنجاح',
-        ),
-      );
-    } catch (e) {
-      emit(VisitsState.error(e.toString()));
-      // إعادة تحميل البيانات بعد الخطأ
-      await initialize();
-    }
-  }
-
-  // إلغاء الزيارة
-  Future<void> cancelVisit({String? reason}) async {
-    emit(const VisitsState.loading());
-    try {
-      await _visitsRepository.cancelCurrentVisit(reason: reason);
-
-      // تحديث الإحصائيات
-      final stats = await _visitsRepository.getVisitStats();
-
-      emit(
-        VisitsState.loaded(
-          currentVisit: null,
-          visitStats: stats,
-          message: 'تم إلغاء الزيارة',
-        ),
-      );
-    } catch (e) {
-      emit(VisitsState.error(e.toString()));
-    }
-  }
-
-  // الحصول على سجل الزيارات
-  Future<List<ClientVisit>> getAllVisits() async {
-    return await _visitsRepository.getAllVisits();
-  }
-
-  // الحصول على زيارات عميل محدد
-  Future<List<ClientVisit>> getClientVisits(String clientId) async {
-    return await _visitsRepository.getClientVisits(clientId);
-  }
-
-  // تحديث الحالة فقط
-  void refreshState() {
-    initialize();
-  }
+  Future<List<ClientVisit>> getAllVisits() => _repository.getAllVisits();
 }
