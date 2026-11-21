@@ -9,7 +9,7 @@ Jawlati is an Arabic-language Flutter app for field sales and distribution reps.
 | Area | Current demo behavior |
 | --- | --- |
 | Demo entry | Open the dashboard with **دخول النسخة التجريبية**. The demo runs without an account or backend. |
-| Customers and visits | Browse sample customers and try visit check-in, check-out, and cancellation. Check-in and check-out use device location. The app stores visit records locally. |
+| Customers and visits | Add or browse customers, select a customer to start a visit, and find completed or cancelled visits in the history. Customers and visits persist in SQLite. Check-in and check-out use device location. |
 | Invoicing and collections | Explore sales invoices, returns, and receipt vouchers. A sample sales invoice can be opened for PDF sharing or printing. Invoice creation currently simulates saving. |
 | Requests and inventory | Explore sales and load requests, stock quantities, and stock counts. Audit submission currently simulates success. |
 
@@ -38,17 +38,18 @@ On the first screen, tap **دخول النسخة التجريبية** to open th
 | [`lib/core/`](lib/core/) | Shared UI, routing, dependency registration, and platform services. |
 | [`test/widget_test.dart`](test/widget_test.dart) | Widget smoke test for opening Jawlati and entering the dashboard. |
 
-The app uses **Cubit** for UI state, **Freezed** for immutable models and states, and **GetIt** to register dependencies. The visits repository uses **SharedPreferences** for local storage and calls the location service for check-in and check-out. **Dio** backs the API service classes. The default demo has no configured API endpoint.
+The app uses **Cubit** for UI state, **Freezed** for immutable models and states, and **GetIt** to register dependencies. The customer and visit repositories use **SQLite** for local storage. On first use, the visits repository imports existing visit records from SharedPreferences. Check-in and check-out use the device location service. **Dio** backs the API service classes. The default demo has no configured API endpoint.
 
 ## Checks
 
 ```sh
 flutter analyze --no-pub
 flutter test --no-pub
+flutter test integration_test/customers_visits_test.dart -d DEVICE_ID
 ```
 
-The widget smoke test covers the demo entry and dashboard. Static analysis currently reports inherited warnings and lints.
+The widget smoke test covers the demo entry and dashboard. Storage tests cover duplicate check-in, failed writes, and migration. The device integration test uses a simulated location and verifies the customer-to-visit flow across a database reopen. Static analysis currently reports inherited warnings and lints.
 
-## Next milestone
+## Demo walkthrough
 
-Make the customer visit workflow repeatable from end to end. The acceptance scenario is to select a customer, start a visit, recover the active visit after restarting the app, and finish it so the completed visit appears in history. The milestone also covers location failures and repeated submissions.
+Add a customer, start a visit from the dashboard, and reopen the app. The dashboard restores the active visit. End the visit and open **سجل الزيارات** to see the completed record.

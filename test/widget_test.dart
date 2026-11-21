@@ -5,8 +5,18 @@ import 'package:jawlati/core/di/dependency_injection.dart';
 import 'package:jawlati/core/helpers/date_time_helper.dart';
 import 'package:jawlati/core/navigation/app_router_constants.dart';
 import 'package:jawlati/features/home/ui/home_screen.dart';
+import 'package:jawlati/features/visits/data/models/client_visit_model.dart';
+import 'package:jawlati/features/visits/data/repo/visits_repository.dart';
 import 'package:jawlati/my_app.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+class _EmptyVisits implements VisitsRepository {
+  @override
+  Future<ClientVisit?> getCurrentVisit() async => null;
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -29,6 +39,8 @@ void main() {
 
     SharedPreferences.setMockInitialValues({});
     await setupGetIt();
+    await getIt.unregister<VisitsRepository>();
+    getIt.registerSingleton<VisitsRepository>(_EmptyVisits());
     await DateTimeHelper.initialize();
     await tester.pumpWidget(
       const MyApp(initialRoute: AppRouterConstants.loginRouter),

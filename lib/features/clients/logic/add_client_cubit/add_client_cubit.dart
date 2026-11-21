@@ -18,7 +18,7 @@ class AddClientCubit extends Cubit<AddClientState> {
   final TextEditingController addressController = TextEditingController();
   final TextEditingController taxNumberController = TextEditingController();
   final TextEditingController managerNameController = TextEditingController();
-  
+
   String? commercialRegistryImagePath;
   String? residenceImagePath;
 
@@ -33,30 +33,46 @@ class AddClientCubit extends Cubit<AddClientState> {
       selectedOrderType = OrderType.retail;
     }
     // _logger.info('Client type updated to: $selectedClientType');
-    emit(AddClientState.success(
-        message: '', selectedClientType: selectedClientType));
+    emit(
+      AddClientState.success(
+        message: '',
+        selectedClientType: selectedClientType,
+      ),
+    );
   }
-  
+
   void updateOrderType(OrderType type) {
     selectedOrderType = type;
-    emit(AddClientState.success(
-        message: '', selectedClientType: selectedClientType));
+    emit(
+      AddClientState.success(
+        message: '',
+        selectedClientType: selectedClientType,
+      ),
+    );
   }
-  
+
   void updateCommercialRegistryImage(String? path) {
     commercialRegistryImagePath = path;
-    emit(AddClientState.success(
-        message: '', selectedClientType: selectedClientType));
+    emit(
+      AddClientState.success(
+        message: '',
+        selectedClientType: selectedClientType,
+      ),
+    );
   }
-  
+
   void updateResidenceImage(String? path) {
     residenceImagePath = path;
-    emit(AddClientState.success(
-        message: '', selectedClientType: selectedClientType));
+    emit(
+      AddClientState.success(
+        message: '',
+        selectedClientType: selectedClientType,
+      ),
+    );
   }
 
   Future<void> addClient() async {
-    if (!formKey.currentState!.validate()) {
+    if (state is Loading || formKey.currentState?.validate() != true) {
       return;
     }
 
@@ -87,18 +103,27 @@ class AddClientCubit extends Cubit<AddClientState> {
       );
 
       await _repository.addClient(client);
+      if (isClosed) return;
 
-      _logger.info('Client added successfully: ${client.name}');
-      emit(const AddClientState.success(
+      _logger.info('Client added successfully');
+      emit(
+        const AddClientState.success(
           message: 'تم إضافة العميل بنجاح',
-          selectedClientType: ClientType.individual));
+          selectedClientType: ClientType.individual,
+        ),
+      );
 
       // Clear form after successful addition
       _clearForm();
     } catch (e) {
       _logger.error('Failed to add client: $e');
-      emit(AddClientState.error(
-          message: 'فشل في إضافة العميل: ${e.toString()}'));
+      if (!isClosed) {
+        emit(
+          const AddClientState.error(
+            message: 'تعذر حفظ العميل. حاول مرة أخرى.',
+          ),
+        );
+      }
     }
   }
 

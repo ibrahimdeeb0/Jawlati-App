@@ -1,4 +1,8 @@
-import 'package:jawlati/core/helpers/app_logger.dart';
+import 'dart:convert';
+
+import 'package:jawlati/core/storage/field_database.dart';
+import 'package:uuid/uuid.dart';
+
 import '../models/client_model.dart';
 
 abstract class ClientRepository {
@@ -10,98 +14,121 @@ abstract class ClientRepository {
 }
 
 class ClientRepositoryImpl implements ClientRepository {
-  final AppLogger _logger = AppLogger();
+  ClientRepositoryImpl(this._store);
 
-  static final List<Client> _clients = [
+  final FieldDatabase _store;
+
+  static const _seed = [
     Client(
-      id: '1',
-      name: 'سوبرماركت سلمى وسر',
-      phone: '0795551234',
-      address: '__ - __',
+      id: 'demo-client-1',
+      name: 'متجر الندى (تجريبي)',
+      phone: '0000000001',
       type: ClientType.company,
-      createdAt: DateTime.now().subtract(const Duration(days: 30)),
     ),
     Client(
-      id: '2',
-      name: 'سوبرماركت بس تست',
-      phone: '0785559876',
-      address: '__ - __',
+      id: 'demo-client-2',
+      name: 'متجر السهل (تجريبي)',
+      phone: '0000000002',
       type: ClientType.company,
-      createdAt: DateTime.now().subtract(const Duration(days: 15)),
     ),
     Client(
-      id: '3',
-      name: 'أحمد محمد',
-      phone: '0799123456',
-      address: '__ - __',
+      id: 'demo-client-3',
+      name: 'عميل تجريبي',
+      phone: '0000000003',
       type: ClientType.individual,
-      balance: 150.0,
-      createdAt: DateTime.now().subtract(const Duration(days: 7)),
     ),
   ];
 
+  Future<void>? _seeding;
+
+  Future<void> _seedOnce() async {
+    try {
+      final db = await _store.database;
+      await db.transaction((txn) async {
+        final seeded = await txn.query(
+          'field_metadata',
+          where: 'key = ?',
+          whereArgs: ['demo_clients_v1'],
+        );
+        if (seeded.isNotEmpty) return;
+
+        final now = DateTime.now().toUtc();
+        for (final client in _seed) {
+          await txn.insert(
+            'clients',
+            _row(client.copyWith(createdAt: now, updatedAt: now)),
+          );
+        }
+        await txn.insert('field_metadata', {'key': 'demo_clients_v1'});
+      });
+    } catch (_) {
+      _seeding = null;
+      rethrow;
+    }
+  }
+
+  Future<void> _ensureSeeded() => _seeding ??= _seedOnce();
+
+  Map<String, Object?> _row(Client client) => {
+    'id': client.id,
+    'payload': jsonEncode(client.toJson()),
+  };
+
+  Client _decode(Map<String, Object?> row) => Client.fromJson(
+    jsonDecode(row['payload'] as String) as Map<String, dynamic>,
+  );
+
   @override
   Future<List<Client>> getAllClients() async {
-    await Future.delayed(const Duration(milliseconds: 300));
-    _logger.info('Retrieved ${_clients.length} clients');
-    return List.from(_clients);
+    await _ensureSeeded();
+    final db = await _store.database;
+    return (await db.query('clients', orderBy: 'rowid')).map(_decode).toList();
   }
 
   @override
   Future<Client> addClient(Client client) async {
-    await Future.delayed(const Duration(milliseconds: 500));
-
-    final newClient = client.copyWith(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
-      createdAt: DateTime.now(),
-      updatedAt: DateTime.now(),
+    await _ensureSeeded();
+    final now = DateTime.now().toUtc();
+    final saved = client.copyWith(
+      id: const Uuid().v4(),
+      createdAt: now,
+      updatedAt: now,
     );
-
-    _clients.add(newClient);
-    _logger.info('Added new client: ${newClient.name} (ID: ${newClient.id})');
-    return newClient;
+    final db = await _store.database;
+    await db.insert('clients', _row(saved));
+    return saved;
   }
 
   @override
   Future<Client> updateClient(Client client) async {
-    await Future.delayed(const Duration(milliseconds: 500));
-
-    final index = _clients.indexWhere((c) => c.id == client.id);
-    if (index == -1) {
-      throw Exception('Client not found');
-    }
-
-    final updatedClient = client.copyWith(updatedAt: DateTime.now());
-    _clients[index] = updatedClient;
-    _logger.info(
-      'Updated client: ${updatedClient.name} (ID: ${updatedClient.id})',
+    await _ensureSeeded();
+    final db = await _store.database;
+    final updated = client.copyWith(updatedAt: DateTime.now().toUtc());
+    final count = await db.update(
+      'clients',
+      _row(updated),
+      where: 'id = ?',
+      whereArgs: [client.id],
     );
-    return updatedClient;
+    if (count == 0) throw StateError('Client not found');
+    return updated;
   }
 
   @override
   Future<void> deleteClient(String clientId) async {
-    await Future.delayed(const Duration(milliseconds: 300));
-
-    // final removed = _clients.removeWhere((c) => c.id == clientId) > 0;
-    // if (!removed) {
-    //   throw Exception('Client not found');
-    // }
-
-    _logger.info('Deleted client with ID: $clientId');
+    throw UnsupportedError('Client deletion is unavailable in this demo');
   }
 
   @override
   Future<Client?> getClientById(String clientId) async {
-    await Future.delayed(const Duration(milliseconds: 200));
-
-    try {
-      final client = _clients.firstWhere((c) => c.id == clientId);
-      _logger.info('Retrieved client: ${client.name}');
-      return client;
-    } catch (e) {
-      _logger.warning('Client not found with ID: $clientId');
-      return null;
-    }
+    await _ensureSeeded();
+    final db = await _store.database;
+    final rows = await db.query(
+      'clients',
+      where: 'id = ?',
+      whereArgs: [clientId],
+      limit: 1,
+    );
+    return rows.isEmpty ? null : _decode(rows.single);
   }
 }

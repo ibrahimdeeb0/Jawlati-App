@@ -76,13 +76,8 @@ final List<DashboardItem> dashboardItems = [
   DashboardItem(
     icon: Icons.inventory,
     label: 'جرد المستودع',
-    onPressed: (context) => context.pushNamed(AppRouterConstants.inventoryQuantities),
+    onPressed: (context) =>
+        context.pushNamed(AppRouterConstants.inventoryQuantities),
     gradientColors: [Colors.brown, Colors.orange],
-  ),
-  DashboardItem(
-    icon: Icons.access_time,
-    label: 'بصمة الدوام',
-    onPressed: (context) {},
-    gradientColors: [Colors.blueGrey, Colors.grey],
   ),
 ];

@@ -1,3 +1,4 @@
+import 'package:jawlati/core/storage/field_database.dart';
 import 'package:dio/dio.dart';
 import 'package:get_it/get_it.dart';
 import 'package:logger/logger.dart';
@@ -110,7 +111,13 @@ Future<void> setupGetIt() async {
   );
 
   // Clients feature
-  getIt.registerLazySingleton<ClientRepository>(() => ClientRepositoryImpl());
+  getIt.registerLazySingleton<FieldDatabase>(
+    FieldDatabase.new,
+    dispose: (db) => db.close(),
+  );
+  getIt.registerLazySingleton<ClientRepository>(
+    () => ClientRepositoryImpl(getIt<FieldDatabase>()),
+  );
   getIt.registerFactory<AddClientCubit>(
     () => AddClientCubit(getIt<ClientRepository>()),
   );
@@ -146,7 +153,11 @@ Future<void> setupGetIt() async {
   // Visits feature
   getIt.registerLazySingleton<LocationService>(() => LocationService());
   getIt.registerLazySingleton<VisitsRepository>(
-    () => VisitsRepository(getIt<LocationService>()),
+    () => VisitsRepository(
+      getIt<FieldDatabase>(),
+      getIt<ClientRepository>(),
+      getIt<LocationService>(),
+    ),
   );
   getIt.registerFactory<VisitsCubit>(
     () => VisitsCubit(getIt<VisitsRepository>()),

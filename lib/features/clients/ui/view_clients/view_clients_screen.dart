@@ -57,8 +57,7 @@ class ViewClientsScreen extends StatelessWidget {
               AppRouterConstants.addClient,
             );
 
-            if (result == true) {
-              // ignore: use_build_context_synchronously
+            if (context.mounted && result == true) {
               context.read<ViewClientsCubit>().refreshClients();
             }
           },
@@ -143,58 +142,11 @@ class _ClientListView extends StatelessWidget {
           final client = clients[index];
           return ClientCard(
             client: client,
-            onEdit: () => _onEdit(context, client),
-            onDelete: () => _onDelete(context, client),
-            // onTap: () => _onView(context, client),
-            lastOrderDate: _getLastOrderDate(client),
             availablePaymentMethods: _getAvailablePaymentMethods(client),
           );
         },
       ),
     );
-  }
-
-  void _onEdit(BuildContext context, Client client) {
-    // TODO: Navigate to edit screen
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('تحرير العميل قريباً')));
-  }
-
-  void _onDelete(BuildContext context, Client client) {
-    showDialog<void>(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('تأكيد الحذف'),
-        content: Text('هل أنت متأكد من حذف العميل "${client.name}"؟'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('إلغاء'),
-          ),
-          TextButton(
-            onPressed: () {
-              context.read<ViewClientsCubit>().deleteClient(client.id);
-              Navigator.pop(context);
-            },
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('حذف'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // void _onView(BuildContext context, Client client) {
-  //   // TODO: Navigate to details screen
-  //   ScaffoldMessenger.of(context).showSnackBar(
-  //     SnackBar(content: Text('تفاصيل العميل: ${client.name}')),
-  //   );
-  // }
-
-  String? _getLastOrderDate(Client client) {
-    // TODO: يجب استبدال هذا بالتاريخ الفعلي من قاعدة البيانات
-    return '23/08';
   }
 
   List<AppPaymentMethod> _getAvailablePaymentMethods(Client client) {
